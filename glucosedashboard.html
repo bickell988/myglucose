@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glucose Monitor Dashboard</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface2: #f0f2f5;
+  --border: #e2e5ea;
+  --border2: #d0d4db;
+  --text: #1a1d23;
+  --text2: #5a6270;
+  --text3: #8a93a0;
+  --blue: #1a7fd4;
+  --blue-light: #e8f3fc;
+  --blue-mid: #5ba5e0;
+  --green: #2d9e5f;
+  --green-light: #e8f7ef;
+  --red: #d94040;
+  --red-light: #fdeaea;
+  --amber: #c47c10;
+  --amber-light: #fdf4e3;
+  --gray-zone: rgba(140,140,140,0.08);
+  --stab-line: rgba(100,100,100,0.45);
+  --radius: 8px;
+  --radius-lg: 12px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05);
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ── Layout ─────────────────────────────── */
+.page-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 52px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.page-header h1 {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.logo-dot {
+  width: 8px; height: 8px;
+  background: var(--blue);
+  border-radius: 50%;
+  display: inline-block;
+}
+.header-meta {
+  font-size: 12px;
+  color: var(--text3);
+}
+
+.main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px 20px 40px;
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+/* ── Sidebar ─────────────────────────────── */
+.sidebar { display: flex; flex-direction: column; gap: 12px; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+.card-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-header h2 {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text2);
+}
+.card-body { padding: 16px; }
+
+/* ── Source Tabs ─────────────────────────── */
+.source-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+.source-tab {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+.source-tab:hover { background: var(--surface2); }
+.source-tab.active {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+
+.source-panel { display: none; }
+.source-panel.active { display: block; }
+
+/* ── Drop Zone ───────────────────────────── */
+.drop-zone {
+  border: 2px dashed var(--border2);
+  border-radius: var(--radius);
+  padding: 28px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--blue);
+  background: var(--blue-light);
+}
+.drop-zone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+.drop-icon {
+  width: 32px; height: 32px;
+  margin: 0 auto 10px;
+  opacity: 0.35;
+}
+.drop-zone p { font-size: 13px; color: var(--text2); line-height: 1.4; }
+.drop-zone small { color: var(--text3); font-size: 11px; }
+
+/* ── Drive Panel ─────────────────────────── */
+.drive-input-wrap { display: flex; flex-direction: column; gap: 8px; }
+.drive-input-wrap label { font-size: 12px; color: var(--text2); font-weight: 500; }
+.drive-url-row { display: flex; gap: 6px; }
+.drive-url-row input {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text);
+  background: var(--surface);
+  outline: none;
+}
+.drive-url-row input:focus { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(26,127,212,0.12); }
+.btn {
+  padding: 7px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--surface);
+  color: var(--text);
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.btn:hover { background: var(--surface2); }
+.btn-primary {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+.btn-primary:hover { background: #1569b3; }
+.drive-note {
+  font-size: 11px;
+  color: var(--text3);
+  line-height: 1.5;
+  background: var(--surface2);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+}
+.drive-note code {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: var(--border);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* ── Settings ────────────────────────────── */
+.settings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label { font-size: 12px; font-weight: 500; color: var(--text2); }
+.field input[type="datetime-local"],
+.field input[type="number"],
+.field select {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--font);
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  outline: none;
+  width: 100%;
+}
+.field input:focus, .field select:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px rgba(26,127,212,0.12);
+}
+.field-note { font-size: 11px; color: var(--text3); }
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text2);
+  cursor: pointer;
+}
+.checkbox-row input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; }
+
+/* ── Status bar ──────────────────────────── */
+.status-bar {
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  display: none;
+  align-items: center;
+  gap: 8px;
+}
+.status-bar.success { background: var(--green-light); color: var(--green); display: flex; }
+.status-bar.error   { background: var(--red-light);   color: var(--red);   display: flex; }
+.status-bar.loading { background: var(--blue-light);  color: var(--blue);  display: flex; }
+
+/* ── Legend ──────────────────────────────── */
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text2);
+}
+.legend-swatch {
+  width: 12px; height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ── Chart Area ──────────────────────────── */
+.chart-area { display: flex; flex-direction: column; gap: 12px; }
+
+.chart-card { padding: 20px; }
+
+.day-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.day-nav-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text3);
+  margin-right: 4px;
+}
+.day-btn {
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text2);
+  transition: all 0.15s;
+}
+.day-btn:hover { background: var(--surface2); }
+.day-btn.active {
+  background: var(--text);
+  border-color: var(--text);
+  color: #fff;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.stat-card {
+  background: var(--surface2);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+.stat-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+.stat-value { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
+.stat-value.good { color: var(--green); }
+.stat-value.warn { color: var(--amber); }
+.stat-value.bad  { color: var(--red); }
+
+.chart-legend {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text2);
+}
+.cl-swatch {
+  width: 10px; height: 10px;
+  border-radius: 2px;
+}
+
+.chart-wrap {
+  position: relative;
+  width: 100%;
+  height: 340px;
+}
+
+.stab-notice {
+  display: none;
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: var(--surface2);
+  border-radius: var(--radius);
+  border: 1px dashed var(--border2);
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.5;
+}
+.stab-notice strong { color: var(--text); font-weight: 600; }
+
+/* ── Empty State ─────────────────────────── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 340px;
+  color: var(--text3);
+  gap: 12px;
+  text-align: center;
+}
+.empty-state svg { opacity: 0.25; }
+.empty-state p { font-size: 13px; line-height: 1.5; }
+
+/* ── Format Guide ────────────────────────── */
+.format-guide summary {
+  font-size: 12px;
+  color: var(--blue);
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+}
+.format-guide pre {
+  margin-top: 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--text2);
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+/* ── Responsive ──────────────────────────── */
+@media (max-width: 800px) {
+  .main { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .main { padding: 12px; }
+}
+
+/* ── Spinner ─────────────────────────────── */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 14px; height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+</style>
+</head>
+<body>
+
+<header class="page-header">
+  <h1><span class="logo-dot"></span>Glucose Monitor Dashboard</h1>
+  <span class="header-meta" id="header-meta">No data loaded</span>
+</header>
+
+<main class="main">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+
+    <!-- Data Source Card -->
+    <div class="card">
+      <div class="card-header">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <path d="M2 4h12M2 8h12M2 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <h2>Data Source</h2>
+      </div>
+      <div class="card-body">
+        <div class="source-tabs">
+          <button class="source-tab active" onclick="switchSource('file')">File Upload</button>
+          <button class="source-tab" onclick="switchSource('drive')">Google Drive</button>
+        </div>
+
+        <!-- File Upload Panel -->
+        <div class="source-panel active" id="panel-file">
+          <div class="drop-zone" id="drop-zone">
+            <input type="file" accept=".csv,.json,.txt,.tsv" id="file-input" onchange="handleFileInput(this)">
+            <svg class="drop-icon" viewBox="0 0 32 32" fill="none">
+              <path d="M16 4v16M10 10l6-6 6 6M6 24h20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <p>Drop a CSV or JSON file here<br>or click to browse</p>
+            <small>Supports Abbott Lingo CSV export format</small>
+          </div>
+          <div style="margin-top:12px;">
+            <details class="format-guide">
+              <summary>Supported file formats</summary>
+              <pre>— Abbott Lingo CSV export (auto-detected)
+— Tab-separated: timestamp TAB value
+— CSV with headers:
+    Time,Glucose mg/dL
+    2026-04-24T15:07-06:00,95
+— JSON array:
+    [{"time":"2026-04-24T15:07-06:00","value":95},...]</pre>
+            </details>
+          </div>
+        </div>
+
+        <!-- Google Drive Panel -->
+        <div class="source-panel" id="panel-drive">
+          <div class="drive-input-wrap">
+            <label>Google Drive share URL or file ID</label>
+            <div class="drive-url-row">
+              <input type="text" id="drive-url" placeholder="https://drive.google.com/file/d/..." spellcheck="false">
+              <button class="btn btn-primary" onclick="loadFromDrive()">Load</button>
+            </div>
+            <div class="drive-note">
+              The file must be shared as <strong>"Anyone with the link can view."</strong>
+              Paste the share URL from Google Drive.<br><br>
+              <strong>Note:</strong> Due to browser security restrictions, this works best when the page is served from a local web server. Run: <code>python -m http.server 8080</code> in the folder containing this file, then open <code>http://localhost:8080</code>.
+            </div>
+          </div>
+        </div>
+
+        <div class="status-bar" id="status-bar">
+          <span class="spinner" id="status-spinner" style="display:none;"></span>
+          <span id="status-text"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sensor Settings Card -->
+    <div class="card">
+      <div class="card-header">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <h2>Sensor Settings</h2>
+      </div>
+      <div class="card-body">
+        <div class="settings-row">
+          <div class="field">
+            <label>Sensor application time</label>
+            <input type="datetime-local" id="sensor-start" onchange="applySettings()">
+            <span class="field-note">When was the sensor physically applied? Used to calculate the stabilization window.</span>
+          </div>
+          <div class="field">
+            <label>Stabilization window (hours)</label>
+            <input type="number" id="stab-hours" value="2" min="0" max="6" step="0.5" onchange="applySettings()">
+            <span class="field-note">Abbott Lingo typically needs 1–3 hrs after application.</span>
+          </div>
+          <label class="checkbox-row">
+            <input type="checkbox" id="show-stab" checked onchange="applySettings()">
+            Flag stabilization period on chart
+          </label>
+          <div class="field">
+            <label>Glucose range target</label>
+            <select id="range-preset" onchange="applySettings()">
+              <option value="70,180">Standard CGM (70–180 mg/dL)</option>
+              <option value="70,140">Non-diabetic / tighter (70–140)</option>
+              <option value="80,130">ADA pre-meal (80–130)</option>
+              <option value="55,200">Lingo full sensor range (55–200)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Legend Card -->
+    <div class="card">
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-swatch" style="background:rgba(226,75,74,0.22);border:1px solid rgba(226,75,74,0.45);"></div>
+          Below range — Low
+        </div>
+        <div class="legend-item">
+          <div class="legend-swatch" style="background:rgba(45,158,95,0.18);border:1px solid rgba(45,158,95,0.35);"></div>
+          Target range
+        </div>
+        <div class="legend-item">
+          <div class="legend-swatch" style="background:rgba(196,124,16,0.18);border:1px solid rgba(196,124,16,0.35);"></div>
+          Above range — High
+        </div>
+        <div class="legend-item">
+          <div class="legend-swatch" style="background:rgba(140,140,140,0.15);border:1px dashed rgba(100,100,100,0.5);"></div>
+          Sensor stabilizing
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── Chart Area ── -->
+  <section class="chart-area">
+    <div class="card chart-card">
+
+      <!-- Day Navigation -->
+      <div class="day-nav" id="day-nav" style="display:none;">
+        <span class="day-nav-label">Day</span>
+        <!-- Populated dynamically -->
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid" id="stats-grid" style="display:none;">
+        <div class="stat-card">
+          <div class="stat-label">Average</div>
+          <div class="stat-value" id="stat-avg">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Minimum</div>
+          <div class="stat-value" id="stat-min">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Maximum</div>
+          <div class="stat-value" id="stat-max">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Time in range</div>
+          <div class="stat-value" id="stat-tir">—</div>
+        </div>
+      </div>
+
+      <!-- Chart Legend -->
+      <div class="chart-legend" id="chart-legend" style="display:none;">
+        <div class="chart-legend-item">
+          <div class="cl-swatch" style="background:#1a7fd4;"></div>
+          In range
+        </div>
+        <div class="chart-legend-item">
+          <div class="cl-swatch" style="background:#d94040;"></div>
+          Low
+        </div>
+        <div class="chart-legend-item">
+          <div class="cl-swatch" style="background:#c47c10;"></div>
+          High
+        </div>
+        <div class="chart-legend-item">
+          <div class="cl-swatch" style="background:rgba(140,140,140,0.5);border:1px dashed rgba(100,100,100,0.5);"></div>
+          Stabilizing
+        </div>
+      </div>
+
+      <!-- Chart Canvas -->
+      <div class="chart-wrap">
+        <div class="empty-state" id="empty-state">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+            <path d="M6 36 L14 24 L20 30 L28 16 L36 22 L42 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <rect x="6" y="6" width="36" height="36" rx="4" stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.4"/>
+          </svg>
+          <p>Load a CSV or JSON file to see your glucose data.<br>Use the panel on the left to get started.</p>
+        </div>
+        <canvas id="glucose-chart" role="img" aria-label="Glucose readings over time" style="display:none;"></canvas>
+      </div>
+
+      <!-- Stabilization Notice -->
+      <div class="stab-notice" id="stab-notice">
+        <strong>Sensor stabilization window</strong> — The shaded region reflects readings during the
+        sensor warm-up period. Abbott Lingo sensors can take 1–3 hours after application to
+        stabilize; readings in this window may be artificially low and should not be used for
+        health decisions.
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ─── State ───────────────────────────────────────────────
+let allReadings = [];   // [{ts: Date, value: number}]
+let days = [];          // [{label, dateStr, readings:[]}]
+let activeDay = 0;
+let glucoseChart = null;
+
+// Settings
+let sensorStart = null;       // Date
+let stabHours = 2;
+let showStab = true;
+let rangeMin = 70;
+let rangeMax = 180;
+
+// ─── Source Switching ─────────────────────────────────────
+function switchSource(id) {
+  document.querySelectorAll('.source-tab').forEach((t,i) => {
+    t.classList.toggle('active', (i === 0 && id === 'file') || (i === 1 && id === 'drive'));
+  });
+  document.getElementById('panel-file').classList.toggle('active', id === 'file');
+  document.getElementById('panel-drive').classList.toggle('active', id === 'drive');
+}
+
+// ─── Settings ─────────────────────────────────────────────
+function applySettings() {
+  const v = document.getElementById('sensor-start').value;
+  sensorStart = v ? new Date(v) : null;
+  stabHours = parseFloat(document.getElementById('stab-hours').value) || 2;
+  showStab = document.getElementById('show-stab').checked;
+  const [lo, hi] = document.getElementById('range-preset').value.split(',').map(Number);
+  rangeMin = lo; rangeMax = hi;
+  if (allReadings.length) renderCurrentDay();
+}
+
+// ─── Status Bar ───────────────────────────────────────────
+function setStatus(type, msg) {
+  const bar = document.getElementById('status-bar');
+  const txt = document.getElementById('status-text');
+  const spin = document.getElementById('status-spinner');
+  bar.className = 'status-bar ' + type;
+  txt.textContent = msg;
+  spin.style.display = type === 'loading' ? 'block' : 'none';
+}
+function clearStatus() {
+  document.getElementById('status-bar').className = 'status-bar';
+}
+
+// ─── Drag & Drop ──────────────────────────────────────────
+const dropZone = document.getElementById('drop-zone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) readFile(file);
+});
+
+function handleFileInput(input) {
+  if (input.files[0]) readFile(input.files[0]);
+}
+
+function readFile(file) {
+  setStatus('loading', 'Reading ' + file.name + '…');
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target.result;
+    try {
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (ext === 'json') loadJSON(text, file.name);
+      else loadCSV(text, file.name);
+    } catch(err) {
+      setStatus('error', 'Parse error: ' + err.message);
+    }
+  };
+  reader.onerror = () => setStatus('error', 'Could not read file.');
+  reader.readAsText(file);
+}
+
+// ─── Google Drive ─────────────────────────────────────────
+async function loadFromDrive() {
+  const raw = document.getElementById('drive-url').value.trim();
+  if (!raw) { setStatus('error', 'Please enter a Google Drive URL or file ID.'); return; }
+
+  let fileId = raw;
+  // Extract ID from share URL patterns
+  const m = raw.match(/\/d\/([a-zA-Z0-9_-]{25,})/);
+  if (m) fileId = m[1];
+  // Handle edit/view URLs too
+  const m2 = raw.match(/id=([a-zA-Z0-9_-]{25,})/);
+  if (m2) fileId = m2[1];
+
+  setStatus('loading', 'Fetching from Google Drive…');
+  const url = `https://drive.google.com/uc?export=download&id=${fileId}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    const isJson = text.trim().startsWith('[') || text.trim().startsWith('{');
+    if (isJson) loadJSON(text, 'drive-file.json');
+    else loadCSV(text, 'drive-file.csv');
+  } catch(err) {
+    setStatus('error', 'Could not fetch file. Check the sharing settings and see the note below about local server usage. (' + err.message + ')');
+  }
+}
+
+// ─── CSV Parsing ──────────────────────────────────────────
+function loadCSV(text, filename) {
+  const readings = parseCSV(text);
+  if (!readings.length) throw new Error('No valid readings found in file.');
+  processReadings(readings, filename);
+}
+
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+  if (!lines.length) return [];
+
+  // Detect separator
+  const sep = lines[0].includes('\t') ? '\t' : lines[0].includes(';') ? ';' : ',';
+  const rows = lines.map(l => l.split(sep).map(c => c.replace(/^"|"$/g, '').trim()));
+
+  // Detect header row
+  const firstVals = rows[0].map(v => v.toLowerCase());
+  let tsCol = -1, valCol = -1;
+  let startRow = 0;
+
+  // Check if first row is a header
+  const knownTsKeys = ['time', 'timestamp', 'datetime', 'date', 'device timestamp', 'historic glucose observation time'];
+  const knownValKeys = ['glucose', 'mg/dl', 'value', 'reading', 'measurement', 'historic glucose mg/dl', 'scan glucose mg/dl'];
+
+  for (let i = 0; i < firstVals.length; i++) {
+    const v = firstVals[i];
+    if (knownTsKeys.some(k => v.includes(k))) tsCol = i;
+    if (knownValKeys.some(k => v.includes(k))) valCol = i;
+  }
+
+  if (tsCol !== -1 && valCol !== -1) {
+    startRow = 1;
+  } else {
+    // Try auto-detect: col0 looks like datetime, col1 looks like number
+    tsCol = 0; valCol = 1; startRow = 0;
+    // Skip header-like first row if not parseable
+    if (rows[0].length >= 2) {
+      const testDate = new Date(rows[0][0]);
+      if (isNaN(testDate.getTime())) startRow = 1;
+    }
+  }
+
+  // Handle FreeStyle Libre / Lingo multi-column format
+  // These have "Historic Glucose mg/dL" and "Scan Glucose mg/dL"
+  // Try a combined value: prefer historic, fall back to scan
+  let scanCol = -1;
+  if (startRow === 1) {
+    for (let i = 0; i < firstVals.length; i++) {
+      if (firstVals[i].includes('scan glucose')) scanCol = i;
+    }
+  }
+
+  const readings = [];
+  for (let r = startRow; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row[tsCol]) continue;
+    const ts = parseTimestamp(row[tsCol]);
+    if (!ts) continue;
+    let rawVal = row[valCol];
+    // If primary col is empty, try scan col
+    if ((!rawVal || rawVal.toLowerCase() === 'out of range') && scanCol !== -1) {
+      rawVal = row[scanCol];
+    }
+    if (!rawVal || rawVal.toLowerCase() === 'out of range' || rawVal === '') continue;
+    const val = parseFloat(rawVal);
+    if (isNaN(val)) continue;
+    readings.push({ ts, value: val });
+  }
+  return readings;
+}
+
+function parseTimestamp(str) {
+  if (!str) return null;
+  // Handle various formats
+  // ISO with offset: 2026-04-24T15:07-06:00
+  // ISO: 2026-04-24T15:07:00
+  // FreeStyle Libre: 2026-04-24 15:07
+  // MM/DD/YYYY HH:MM
+  str = str.trim();
+  // Normalize space to T
+  str = str.replace(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})/, '$1T$2');
+  str = str.replace(/^(\d{2})\/(\d{2})\/(\d{4})\s*/, '$3-$1-$2T');
+  // Add seconds if missing for ISO-like
+  if (/T\d{2}:\d{2}$/.test(str) || /T\d{2}:\d{2}[+-]/.test(str)) {
+    str = str.replace(/(T\d{2}:\d{2})([+-]|$)/, '$100$2');
+  }
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// ─── JSON Parsing ─────────────────────────────────────────
+function loadJSON(text, filename) {
+  const data = JSON.parse(text);
+  const arr = Array.isArray(data) ? data : (data.readings || data.data || Object.values(data)[0]);
+  if (!Array.isArray(arr)) throw new Error('Expected a JSON array of readings.');
+
+  const tsKeys = ['time','timestamp','datetime','date','ts'];
+  const valKeys = ['value','glucose','reading','measurement','mg_dl','mgdl'];
+
+  const readings = arr.map(obj => {
+    let ts = null, value = null;
+    for (const k of tsKeys) {
+      if (obj[k] !== undefined) { ts = parseTimestamp(String(obj[k])); break; }
+    }
+    for (const k of valKeys) {
+      if (obj[k] !== undefined) { value = parseFloat(obj[k]); break; }
+    }
+    return (ts && !isNaN(value)) ? { ts, value } : null;
+  }).filter(Boolean);
+
+  if (!readings.length) throw new Error('No valid readings found in JSON.');
+  processReadings(readings, filename);
+}
+
+// ─── Data Processing ──────────────────────────────────────
+function processReadings(readings, filename) {
+  // Sort chronologically
+  readings.sort((a, b) => a.ts - b.ts);
+  allReadings = readings;
+
+  // Group by local date (use the local date string from the TS)
+  const byDate = {};
+  for (const r of readings) {
+    const dateStr = r.ts.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+    if (!byDate[dateStr]) byDate[dateStr] = [];
+    byDate[dateStr].push(r);
+  }
+  days = Object.entries(byDate).map(([label, rs]) => ({ label, readings: rs }));
+
+  // Update UI
+  const first = readings[0].ts.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+  const last  = readings[readings.length-1].ts.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+  document.getElementById('header-meta').textContent =
+    `${readings.length.toLocaleString()} readings · ${first}${first !== last ? ' – ' + last : ''}`;
+
+  setStatus('success', `Loaded ${readings.length.toLocaleString()} readings from ${filename}`);
+  buildDayNav();
+  switchDay(0);
+}
+
+// ─── Day Navigation ───────────────────────────────────────
+function buildDayNav() {
+  const nav = document.getElementById('day-nav');
+  nav.innerHTML = '<span class="day-nav-label">Day</span>';
+  days.forEach((d, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'day-btn' + (i === 0 ? ' active' : '');
+    btn.textContent = d.label;
+    btn.onclick = () => switchDay(i);
+    nav.appendChild(btn);
+  });
+  nav.style.display = 'flex';
+}
+
+function switchDay(idx) {
+  activeDay = idx;
+  document.querySelectorAll('.day-btn').forEach((b,i) => b.classList.toggle('active', i===idx));
+  renderCurrentDay();
+}
+
+// ─── Render ───────────────────────────────────────────────
+function renderCurrentDay() {
+  const day = days[activeDay];
+  if (!day) return;
+  renderStats(day.readings);
+  renderChart(day.readings, getStabCutoff(day.readings));
+  document.getElementById('stats-grid').style.display = 'grid';
+  document.getElementById('chart-legend').style.display = 'flex';
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('glucose-chart').style.display = 'block';
+}
+
+function getStabCutoff(readings) {
+  if (!showStab || !sensorStart) return 0;
+  const cutoff = new Date(sensorStart.getTime() + stabHours * 3600000);
+  // Find first reading index beyond cutoff
+  for (let i = 0; i < readings.length; i++) {
+    if (readings[i].ts >= cutoff) return i;
+  }
+  return 0;
+}
+
+function renderStats(readings) {
+  const vals = readings.map(r => r.value);
+  const avg = Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
+  const mn  = Math.min(...vals);
+  const mx  = Math.max(...vals);
+  const tir = Math.round(vals.filter(v=>v>=rangeMin&&v<=rangeMax).length/vals.length*100);
+
+  const avgEl = document.getElementById('stat-avg');
+  avgEl.textContent = avg + ' mg/dL';
+  avgEl.className = 'stat-value ' + valClass(avg);
+
+  const minEl = document.getElementById('stat-min');
+  minEl.textContent = mn + ' mg/dL';
+  minEl.className = 'stat-value ' + (mn < rangeMin ? 'bad' : 'good');
+
+  const maxEl = document.getElementById('stat-max');
+  maxEl.textContent = mx + ' mg/dL';
+  maxEl.className = 'stat-value ' + (mx > rangeMax ? 'warn' : 'good');
+
+  const tirEl = document.getElementById('stat-tir');
+  tirEl.textContent = tir + '%';
+  tirEl.className = 'stat-value ' + (tir >= 70 ? 'good' : tir >= 50 ? 'warn' : 'bad');
+}
+
+function valClass(v) {
+  if (v < rangeMin) return 'bad';
+  if (v > rangeMax) return 'warn';
+  return 'good';
+}
+
+function renderChart(readings, stabCutoff) {
+  const labels = readings.map(r => r.ts.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit', hour12:false}));
+  const values = readings.map(r => r.value);
+
+  // Show/hide stab notice
+  const noticeEl = document.getElementById('stab-notice');
+  noticeEl.style.display = (showStab && sensorStart && stabCutoff > 0) ? 'block' : 'none';
+
+  const zonePlugin = {
+    id: 'glucoseZones',
+    beforeDraw(chart) {
+      const ctx = chart.ctx;
+      const yS = chart.scales.y;
+      const xS = chart.scales.x;
+      const ca  = chart.chartArea;
+      const w   = ca.right - ca.left;
+      const yLo  = yS.getPixelForValue(rangeMin);
+      const yHi  = yS.getPixelForValue(rangeMax);
+      ctx.save();
+
+      // Zone fills
+      ctx.fillStyle = 'rgba(217,64,64,0.07)';
+      ctx.fillRect(ca.left, yLo, w, ca.bottom - yLo);
+      ctx.fillStyle = 'rgba(45,158,95,0.07)';
+      ctx.fillRect(ca.left, yHi, w, yLo - yHi);
+      ctx.fillStyle = 'rgba(196,124,16,0.07)';
+      ctx.fillRect(ca.left, ca.top, w, yHi - ca.top);
+
+      // Dashed boundary lines
+      ctx.setLineDash([5, 4]);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(217,64,64,0.4)';
+      ctx.beginPath(); ctx.moveTo(ca.left, yLo); ctx.lineTo(ca.right, yLo); ctx.stroke();
+      ctx.strokeStyle = 'rgba(196,124,16,0.4)';
+      ctx.beginPath(); ctx.moveTo(ca.left, yHi); ctx.lineTo(ca.right, yHi); ctx.stroke();
+
+      // Stabilization overlay
+      if (showStab && sensorStart && stabCutoff > 0 && stabCutoff < readings.length) {
+        const xEnd = xS.getPixelForValue(stabCutoff - 1);
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(120,120,120,0.09)';
+        ctx.fillRect(ca.left, ca.top, xEnd - ca.left, ca.bottom - ca.top);
+        // Dashed boundary
+        ctx.setLineDash([6,4]);
+        ctx.strokeStyle = 'rgba(80,80,80,0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(xEnd, ca.top); ctx.lineTo(xEnd, ca.bottom); ctx.stroke();
+        // Label
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(80,80,80,0.65)';
+        ctx.font = '600 10px -apple-system, system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('Stabilizing', ca.left + 6, ca.top + 15);
+      }
+      ctx.restore();
+    }
+  };
+
+  const cfg = {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        borderWidth: 1.5,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: values.map(v => lineColor(v, false)),
+        pointHoverBorderColor: '#fff',
+        pointHoverBorderWidth: 2,
+        tension: 0.3,
+        fill: false,
+        segment: {
+          borderColor: ctx => {
+            if (showStab && sensorStart && ctx.p1DataIndex < stabCutoff)
+              return 'rgba(140,140,140,0.5)';
+            const v = ctx.p1.parsed.y;
+            return lineColor(v, false);
+          }
+        }
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 250 },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#fff',
+          titleColor: '#1a1d23',
+          bodyColor: '#5a6270',
+          borderColor: '#e2e5ea',
+          borderWidth: 1,
+          padding: 10,
+          cornerRadius: 8,
+          callbacks: {
+            title: items => items[0].label,
+            label: item => {
+              const v = item.parsed.y;
+              const idx = item.dataIndex;
+              const stab = showStab && sensorStart && idx < stabCutoff;
+              const status = stab ? 'Stabilizing (unreliable)'
+                : v < rangeMin ? 'Below range'
+                : v > rangeMax ? 'Above range'
+                : 'In range';
+              return v + ' mg/dL — ' + status;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            autoSkip: true,
+            maxTicksLimit: 12,
+            maxRotation: 0,
+            font: { size: 11, family: '-apple-system, system-ui, sans-serif' },
+            color: '#8a93a0'
+          },
+          grid: { color: 'rgba(0,0,0,0.04)' },
+          border: { color: 'rgba(0,0,0,0.1)' }
+        },
+        y: {
+          min: Math.min(40, rangeMin - 20),
+          max: Math.max(240, rangeMax + 40),
+          ticks: {
+            stepSize: 40,
+            font: { size: 11, family: '-apple-system, system-ui, sans-serif' },
+            color: '#8a93a0',
+            callback: v => v
+          },
+          grid: { color: 'rgba(0,0,0,0.04)' },
+          border: { color: 'rgba(0,0,0,0.1)' },
+          title: {
+            display: true,
+            text: 'mg/dL',
+            font: { size: 11 },
+            color: '#8a93a0'
+          }
+        }
+      }
+    },
+    plugins: [zonePlugin]
+  };
+
+  if (glucoseChart) {
+    glucoseChart.data.labels = labels;
+    glucoseChart.data.datasets[0].data = values;
+    glucoseChart.options.scales.y.min = Math.min(40, rangeMin - 20);
+    glucoseChart.options.scales.y.max = Math.max(240, rangeMax + 40);
+    glucoseChart.update('none');
+  } else {
+    glucoseChart = new Chart(document.getElementById('glucose-chart'), cfg);
+  }
+}
+
+function lineColor(v, stab) {
+  if (stab) return 'rgba(140,140,140,0.5)';
+  if (v < rangeMin) return '#d94040';
+  if (v > rangeMax) return '#c47c10';
+  return '#1a7fd4';
+}
+</script>
+
+</body>
+</html>
