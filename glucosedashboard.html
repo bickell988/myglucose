@@ -502,9 +502,9 @@ body {
               <button class="btn btn-primary" onclick="loadFromDrive()">Load</button>
             </div>
             <div class="drive-note">
-              The file must be shared as <strong>"Anyone with the link can view."</strong>
-              Paste the share URL from Google Drive.<br><br>
-              <strong>Note:</strong> Due to browser security restrictions, this works best when the page is served from a local web server. Run: <code>python -m http.server 8080</code> in the folder containing this file, then open <code>http://localhost:8080</code>.
+              <strong>⚠ Browser limitation:</strong> Google Drive blocks direct browser access to files (CORS policy), so this feature does not work for regular Drive files regardless of sharing settings or local server usage.<br><br>
+              <strong>Recommended workaround:</strong> Download the CSV from Google Drive, then use the <em>File Upload</em> tab to load it.<br><br>
+              <strong>Google Sheets only:</strong> If your data is in a Google Sheet, go to <em>File → Share → Publish to web</em>, choose CSV format, and paste that URL here — published sheet URLs are CORS-friendly.
             </div>
           </div>
         </div>
@@ -756,7 +756,7 @@ async function loadFromDrive() {
     if (isJson) loadJSON(text, 'drive-file.json');
     else loadCSV(text, 'drive-file.csv');
   } catch(err) {
-    setStatus('error', 'Could not fetch file. Check the sharing settings and see the note below about local server usage. (' + err.message + ')');
+    setStatus('error', 'Could not fetch file. Google Drive blocks browser requests (CORS). Download the file and use the File Upload tab instead. (' + err.message + ')');
   }
 }
 
