@@ -472,7 +472,7 @@ body {
         <!-- File Upload Panel -->
         <div class="source-panel active" id="panel-file">
           <div class="drop-zone" id="drop-zone">
-            <input type="file" accept=".csv,.json,.txt,.tsv" id="file-input" onchange="handleFileInput(this)">
+            <input type="file" accept=".csv,.json,.txt,.tsv,text/csv,text/plain,application/json,text/tab-separated-values" id="file-input" onchange="handleFileInput(this)">
             <svg class="drop-icon" viewBox="0 0 32 32" fill="none">
               <path d="M16 4v16M10 10l6-6 6 6M6 24h20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
@@ -1119,15 +1119,8 @@ function renderChart(readings, stabCutoff) {
     plugins: [zonePlugin]
   };
 
-  if (glucoseChart) {
-    glucoseChart.data.labels = labels;
-    glucoseChart.data.datasets[0].data = values;
-    glucoseChart.options.scales.y.min = Math.min(40, rangeMin - 20);
-    glucoseChart.options.scales.y.max = Math.max(240, rangeMax + 40);
-    glucoseChart.update('none');
-  } else {
-    glucoseChart = new Chart(document.getElementById('glucose-chart'), cfg);
-  }
+  if (glucoseChart) glucoseChart.destroy();
+  glucoseChart = new Chart(document.getElementById('glucose-chart'), cfg);
 }
 
 function lineColor(v, stab) {
