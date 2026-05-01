@@ -561,6 +561,51 @@ body {
   box-shadow: 0 8px 32px rgba(0,0,0,0.15);
 }
 
+/* ── Toast Notifications ─────────────────── */
+.toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 400;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  line-height: 1.5;
+  max-width: 300px;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  pointer-events: all;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  animation: toast-in 0.25s ease;
+}
+.toast.warn  { background: var(--amber-light); border: 1px solid rgba(196,124,16,0.3); color: var(--amber); }
+.toast.error { background: var(--red-light);   border: 1px solid rgba(217,64,64,0.3);  color: var(--red);   }
+.toast svg { flex-shrink: 0; margin-top: 1px; }
+.toast-msg { flex: 1; font-weight: 500; }
+.toast-close {
+  margin-left: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: currentColor;
+  opacity: 0.55;
+  padding: 0;
+  flex-shrink: 0;
+  font-size: 15px;
+  line-height: 1;
+}
+.toast-close:hover { opacity: 1; }
+@keyframes toast-in  { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes toast-out { from { opacity: 1; } to { transform: translateY(8px); opacity: 0; } }
+.toast.hiding { animation: toast-out 0.22s ease forwards; }
+
 /* ── Chart Fullscreen Mode ───────────────── */
 .chart-area.fs-mode {
   position: fixed;
@@ -588,7 +633,7 @@ body {
 <body>
 
 <header class="page-header">
-  <h1><span class="logo-dot"></span>Glucose Monitor Dashboard <span style="font-size:11px;font-weight:500;color:var(--text2);letter-spacing:0;">v1.3.0</span><span style="margin-left:6px;font-size:10px;font-weight:400;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;letter-spacing:0;">2026-05-01</span></h1>
+  <h1><span class="logo-dot"></span>Glucose Monitor Dashboard <span style="font-size:11px;font-weight:500;color:var(--text2);letter-spacing:0;">v1.3.1</span><span style="margin-left:6px;font-size:10px;font-weight:400;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;letter-spacing:0;">2026-05-01</span></h1>
   <div style="display:flex;align-items:center;gap:12px;">
     <span class="header-meta" id="header-meta">No data loaded</span>
     <div class="meatball-wrap">
@@ -800,6 +845,8 @@ body {
 
 </main>
 
+<div class="toast-container" id="toast-container"></div>
+
 <!-- Settings Modal -->
 <div id="settings-modal" class="modal-overlay" style="display:none;" onclick="handleModalClick(event)">
   <div class="modal-panel card">
@@ -863,6 +910,36 @@ let rangeMax = 180;
 // UI visibility
 let showDayNav = true;
 let showStats = true;
+
+// ─── Toast Notifications ─────────────────────────────────
+function showToast(message, type) {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  toast.dataset.sensorWarn = '1';
+  const icon = type === 'error'
+    ? '<svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11" r=".75" fill="currentColor"/></svg>'
+    : '<svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 2l5.5 11H2.5L8 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 7v2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="11.5" r=".75" fill="currentColor"/></svg>';
+  toast.innerHTML = `${icon}<span class="toast-msg">${message}</span><button class="toast-close" onclick="dismissToast(this.parentElement)" title="Dismiss">&#x2715;</button>`;
+  container.appendChild(toast);
+}
+
+function dismissToast(toast) {
+  if (!toast || !toast.parentElement) return;
+  toast.classList.add('hiding');
+  setTimeout(() => toast.remove(), 230);
+}
+
+function checkSensorAge() {
+  document.querySelectorAll('.toast[data-sensor-warn]').forEach(t => t.remove());
+  if (!sensorStart) return;
+  const days = (Date.now() - sensorStart.getTime()) / 86400000;
+  if (days >= 14) {
+    showToast('Sensor application date indicates end of life has been reached. If already replaced, update the date in Sensor Settings.', 'error');
+  } else if (days >= 11) {
+    showToast('Sensor is nearing end of life. Purchase a replacement if needed — or update the sensor date in Sensor Settings if already replaced.', 'warn');
+  }
+}
 
 // ─── Settings Persistence ────────────────────────────────
 const LS = {
@@ -969,6 +1046,7 @@ function applySettings() {
   const [lo, hi] = document.getElementById('range-preset').value.split(',').map(Number);
   rangeMin = lo; rangeMax = hi;
   saveSettings();
+  checkSensorAge();
   if (allReadings.length) renderCurrentDay();
 }
 
