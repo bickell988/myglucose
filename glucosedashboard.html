@@ -489,6 +489,29 @@ body {
   border-color: var(--border);
 }
 .tool-btn.off:hover { background: var(--surface2); }
+
+/* ── Chart Fullscreen Mode ───────────────── */
+.chart-area.fs-mode {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--bg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.chart-area.fs-mode .card.chart-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.chart-area.fs-mode .chart-wrap {
+  flex: 1;
+  height: auto;
+  min-height: 200px;
+}
 </style>
 </head>
 <body>
@@ -769,20 +792,17 @@ function toggleSection(btnId, sectionId, displayValue) {
 }
 
 function toggleFullscreen() {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen().catch(() => {});
-  } else {
-    document.exitFullscreen();
-  }
-}
-
-document.addEventListener('fullscreenchange', () => {
+  const area = document.querySelector('.chart-area');
+  const inFs = area.classList.toggle('fs-mode');
   const btn = document.getElementById('btn-fullscreen');
-  if (!btn) return;
-  const inFs = !!document.fullscreenElement;
   btn.innerHTML = inFs
     ? '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M6 2v4H2M10 2v4h4M2 10h4v4M14 10h-4v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Exit'
     : '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Fullscreen';
+  if (glucoseChart) setTimeout(() => glucoseChart.resize(), 50);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.querySelector('.chart-area.fs-mode')) toggleFullscreen();
 });
 
 // ─── Source Switching ─────────────────────────────────────
