@@ -441,6 +441,54 @@ body {
   animation: spin 0.7s linear infinite;
   flex-shrink: 0;
 }
+
+/* ── Collapse & Toolbar Buttons ──────────── */
+.collapse-btn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text3);
+  padding: 2px 4px;
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius);
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+.collapse-btn:hover { color: var(--text); }
+.collapse-btn svg { transition: transform 0.2s; }
+.collapse-btn.collapsed svg { transform: rotate(-90deg); }
+
+.chart-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.tool-btn {
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--blue-mid);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--blue-light);
+  color: var(--blue);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.tool-btn:hover { background: #d0e8f8; }
+.tool-btn.off {
+  background: transparent;
+  color: var(--text3);
+  border-color: var(--border);
+}
+.tool-btn.off:hover { background: var(--surface2); }
 </style>
 </head>
 <body>
@@ -462,8 +510,11 @@ body {
           <path d="M2 4h12M2 8h12M2 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
         <h2>Data Source</h2>
+        <button class="collapse-btn" onclick="toggleCardBody(this,'datasource-body')" title="Toggle section">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
       </div>
-      <div class="card-body">
+      <div class="card-body" id="datasource-body">
         <div class="source-tabs">
           <button class="source-tab active" onclick="switchSource('file')">File Upload</button>
           <button class="source-tab" onclick="switchSource('drive')">Google Drive</button>
@@ -524,8 +575,11 @@ body {
           <path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
         <h2>Sensor Settings</h2>
+        <button class="collapse-btn" onclick="toggleCardBody(this,'settings-body')" title="Toggle section">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
       </div>
-      <div class="card-body">
+      <div class="card-body" id="settings-body">
         <div class="settings-row">
           <div class="field">
             <label>Sensor application time</label>
@@ -556,6 +610,18 @@ body {
 
     <!-- Legend Card -->
     <div class="card">
+      <div class="card-header">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <rect x="2" y="3" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M9 5h5M9 11h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <rect x="2" y="9" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        <h2>Legend</h2>
+        <button class="collapse-btn" onclick="toggleCardBody(this,'legend-body')" title="Toggle section">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <div id="legend-body">
       <div class="legend">
         <div class="legend-item">
           <div class="legend-swatch" style="background:rgba(226,75,74,0.22);border:1px solid rgba(226,75,74,0.45);"></div>
@@ -574,6 +640,7 @@ body {
           Sensor stabilizing
         </div>
       </div>
+      </div>
     </div>
 
   </aside>
@@ -581,6 +648,16 @@ body {
   <!-- ── Chart Area ── -->
   <section class="chart-area">
     <div class="card chart-card">
+
+      <!-- Chart Toolbar -->
+      <div class="chart-toolbar">
+        <button class="tool-btn" id="btn-daynav" onclick="toggleSection('btn-daynav','day-nav','flex')" title="Toggle day navigation">Day Nav</button>
+        <button class="tool-btn" id="btn-stats" onclick="toggleSection('btn-stats','stats-grid','grid')" title="Toggle statistics">Stats</button>
+        <button class="tool-btn" id="btn-fullscreen" onclick="toggleFullscreen()" title="Toggle fullscreen">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Fullscreen
+        </button>
+      </div>
 
       <!-- Day Navigation -->
       <div class="day-nav" id="day-nav" style="display:none;">
@@ -667,6 +744,46 @@ let stabHours = 2;
 let showStab = true;
 let rangeMin = 70;
 let rangeMax = 180;
+
+// UI visibility
+let showDayNav = true;
+let showStats = true;
+
+// ─── UI Toggles ──────────────────────────────────────────
+function toggleCardBody(btn, id) {
+  const body = document.getElementById(id);
+  const visible = body.style.display !== 'none';
+  body.style.display = visible ? 'none' : '';
+  btn.classList.toggle('collapsed', visible);
+}
+
+function toggleSection(btnId, sectionId, displayValue) {
+  const btn = document.getElementById(btnId);
+  const willHide = !btn.classList.contains('off');
+  btn.classList.toggle('off', willHide);
+  if (sectionId === 'day-nav') showDayNav = !willHide;
+  if (sectionId === 'stats-grid') showStats = !willHide;
+  if (allReadings.length) {
+    document.getElementById(sectionId).style.display = willHide ? 'none' : displayValue;
+  }
+}
+
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+document.addEventListener('fullscreenchange', () => {
+  const btn = document.getElementById('btn-fullscreen');
+  if (!btn) return;
+  const inFs = !!document.fullscreenElement;
+  btn.innerHTML = inFs
+    ? '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M6 2v4H2M10 2v4h4M2 10h4v4M14 10h-4v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Exit'
+    : '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Fullscreen';
+});
 
 // ─── Source Switching ─────────────────────────────────────
 function switchSource(id) {
@@ -926,8 +1043,9 @@ function renderCurrentDay() {
   if (!day) return;
   renderStats(day.readings);
   renderChart(day.readings, getStabCutoff(day.readings));
-  document.getElementById('stats-grid').style.display = 'grid';
+  document.getElementById('stats-grid').style.display = showStats ? 'grid' : 'none';
   document.getElementById('chart-legend').style.display = 'flex';
+  document.getElementById('day-nav').style.display = showDayNav ? 'flex' : 'none';
   document.getElementById('empty-state').style.display = 'none';
   document.getElementById('glucose-chart').style.display = 'block';
 }
