@@ -656,7 +656,7 @@ body {
 <body>
 
 <header class="page-header">
-  <h1><span class="logo-dot"></span>Glucose Monitor Dashboard <span style="font-size:11px;font-weight:500;color:var(--text2);letter-spacing:0;">v1.4.0</span><span style="margin-left:6px;font-size:10px;font-weight:400;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;letter-spacing:0;">2026-05-01</span></h1>
+  <h1><span class="logo-dot"></span>Glucose Monitor Dashboard <span style="font-size:11px;font-weight:500;color:var(--text2);letter-spacing:0;">v1.5.1</span><span style="margin-left:6px;font-size:10px;font-weight:400;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;letter-spacing:0;">2026-05-07</span></h1>
   <div style="display:flex;align-items:center;gap:12px;">
     <span class="header-meta" id="header-meta">No data loaded</span>
     <div class="meatball-wrap">
@@ -893,9 +893,10 @@ body {
     <div class="card-body">
       <div class="settings-row">
         <div class="field">
-          <label>Sensor application time</label>
-          <input type="datetime-local" id="sensor-start" onchange="applySettings()">
-          <span class="field-note">When was the sensor physically applied? Used to calculate the stabilization window.</span>
+          <label>Sensor application dates</label>
+          <div id="sensor-starts-list"></div>
+          <button type="button" onclick="addSensorStart()" style="margin-top:6px;padding:5px 10px;font-size:12px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:6px;cursor:pointer;">+ Add sensor date</button>
+          <span class="field-note">Record each time a new sensor is applied. The stabilization window will be flagged for each entry.</span>
         </div>
         <div class="field">
           <label>Stabilization window (hours)</label>
@@ -929,7 +930,7 @@ let activeDay = 0;
 let glucoseChart = null;
 
 // Settings
-let sensorStart = null;       // Date
+let sensorStarts = [];        // Date[]  — chronological list of sensor application times
 let stabHours = 2;
 let showStab = true;
 let rangeMin = 70;
@@ -988,12 +989,13 @@ function dismissToast(toast) {
 
 function checkSensorAge() {
   document.querySelectorAll('.toast[data-sensor-warn]').forEach(t => t.remove());
-  if (!sensorStart) return;
-  const days = (Date.now() - sensorStart.getTime()) / 86400000;
+  if (sensorStarts.length === 0) return;
+  const latest = sensorStarts[sensorStarts.length - 1];
+  const days = (Date.now() - latest.getTime()) / 86400000;
   if (days >= 14) {
-    showToast('Sensor application date indicates end of life has been reached. If already replaced, update the date in Sensor Settings.', 'error');
+    showToast('Sensor application date indicates end of life has been reached. If already replaced, add the new date in Sensor Settings.', 'error');
   } else if (days >= 11) {
-    showToast('Sensor is nearing end of life. Purchase a replacement if needed — or update the sensor date in Sensor Settings if already replaced.', 'warn');
+    showToast('Sensor is nearing end of life. Purchase a replacement if needed — or add the new sensor date in Sensor Settings if already replaced.', 'warn');
   }
 }
 
@@ -1005,22 +1007,62 @@ const LS = {
   rangePreset: 'gmd_range_preset'
 };
 
+function toLocalDatetimeValue(d) {
+  const z = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`;
+}
+
 function saveSettings() {
-  localStorage.setItem(LS.sensorStart, document.getElementById('sensor-start').value);
+  localStorage.setItem(LS.sensorStart, JSON.stringify(sensorStarts.map(d => d.toISOString())));
   localStorage.setItem(LS.stabHours,   document.getElementById('stab-hours').value);
   localStorage.setItem(LS.showStab,    document.getElementById('show-stab').checked);
   localStorage.setItem(LS.rangePreset, document.getElementById('range-preset').value);
 }
 
 function loadSettings() {
-  const ss = localStorage.getItem(LS.sensorStart);
+  const raw = localStorage.getItem(LS.sensorStart);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      sensorStarts = (Array.isArray(parsed) ? parsed : [parsed])
+        .map(s => new Date(s)).filter(d => !isNaN(d.getTime()))
+        .sort((a, b) => a - b);
+    } catch {
+      const d = new Date(raw);
+      sensorStarts = isNaN(d.getTime()) ? [] : [d];
+    }
+  }
+  renderSensorStartsList();
   const sh = localStorage.getItem(LS.stabHours);
   const st = localStorage.getItem(LS.showStab);
   const rp = localStorage.getItem(LS.rangePreset);
-  if (ss) document.getElementById('sensor-start').value = ss;
   if (sh !== null) document.getElementById('stab-hours').value = sh;
   if (st !== null) document.getElementById('show-stab').checked = st === 'true';
   if (rp) document.getElementById('range-preset').value = rp;
+  applySettings();
+}
+
+function renderSensorStartsList() {
+  const list = document.getElementById('sensor-starts-list');
+  list.innerHTML = '';
+  sensorStarts.forEach(d => {
+    const item = document.createElement('div');
+    item.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;';
+    item.innerHTML = `<input type="datetime-local" value="${toLocalDatetimeValue(d)}" onchange="applySettings()" style="flex:1;min-width:0;"><button type="button" onclick="removeSensorStart(this.parentElement)" title="Remove" style="flex-shrink:0;width:24px;height:24px;border:none;background:none;cursor:pointer;color:var(--text2);font-size:14px;border-radius:4px;">&#x2715;</button>`;
+    list.appendChild(item);
+  });
+}
+
+function addSensorStart() {
+  const list = document.getElementById('sensor-starts-list');
+  const item = document.createElement('div');
+  item.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;';
+  item.innerHTML = `<input type="datetime-local" onchange="applySettings()" style="flex:1;min-width:0;"><button type="button" onclick="removeSensorStart(this.parentElement)" title="Remove" style="flex-shrink:0;width:24px;height:24px;border:none;background:none;cursor:pointer;color:var(--text2);font-size:14px;border-radius:4px;">&#x2715;</button>`;
+  list.appendChild(item);
+}
+
+function removeSensorStart(itemEl) {
+  itemEl.remove();
   applySettings();
 }
 
@@ -1095,14 +1137,17 @@ function switchSource(id) {
 
 // ─── Settings ─────────────────────────────────────────────
 function applySettings() {
-  const v = document.getElementById('sensor-start').value;
-  sensorStart = v ? new Date(v) : null;
+  sensorStarts = Array.from(document.querySelectorAll('#sensor-starts-list input[type="datetime-local"]'))
+    .map(el => el.value ? new Date(el.value) : null)
+    .filter(d => d && !isNaN(d.getTime()))
+    .sort((a, b) => a - b);
   stabHours = parseFloat(document.getElementById('stab-hours').value) || 2;
   showStab = document.getElementById('show-stab').checked;
   const [lo, hi] = document.getElementById('range-preset').value.split(',').map(Number);
   rangeMin = lo; rangeMax = hi;
   saveSettings();
   checkSensorAge();
+  updateHeaderMeta();
   if (allReadings.length) renderCurrentDay();
 }
 
@@ -1293,6 +1338,20 @@ function loadJSON(text, filename) {
 }
 
 // ─── Data Processing ──────────────────────────────────────
+function updateHeaderMeta() {
+  if (!allReadings.length) return;
+  const fmt = d => d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+  const first = fmt(allReadings[0].ts);
+  const last  = fmt(allReadings[allReadings.length - 1].ts);
+  let meta = `${allReadings.length.toLocaleString()} readings · ${first}${first !== last ? ' – ' + last : ''}`;
+  if (sensorStarts.length > 0) {
+    const latest = sensorStarts[sensorStarts.length - 1];
+    const d = Math.floor((Date.now() - latest.getTime()) / 86400000);
+    meta += ` · Sensor: ${d} day${d === 1 ? '' : 's'}`;
+  }
+  document.getElementById('header-meta').textContent = meta;
+}
+
 function processReadings(readings, filename) {
   // Sort chronologically
   readings.sort((a, b) => a.ts - b.ts);
@@ -1308,11 +1367,7 @@ function processReadings(readings, filename) {
   days = Object.entries(byDate).map(([label, rs]) => ({ label, readings: rs }));
 
   // Update UI
-  const first = readings[0].ts.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
-  const last  = readings[readings.length-1].ts.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
-  document.getElementById('header-meta').textContent =
-    `${readings.length.toLocaleString()} readings · ${first}${first !== last ? ' – ' + last : ''}`;
-
+  updateHeaderMeta();
   setStatus('success', `Loaded ${readings.length.toLocaleString()} readings from ${filename}`);
   buildDayNav();
   switchDay(0);
@@ -1343,7 +1398,7 @@ function renderCurrentDay() {
   const day = days[activeDay];
   if (!day) return;
   renderStats(day.readings);
-  renderChart(day.readings, getStabCutoff(day.readings));
+  renderChart(day.readings, getStabIndices(day.readings));
   document.getElementById('stats-grid').style.display = showStats ? 'grid' : 'none';
   document.getElementById('chart-legend').style.display = 'flex';
   document.getElementById('day-nav').style.display = showDayNav ? 'flex' : 'none';
@@ -1351,14 +1406,18 @@ function renderCurrentDay() {
   document.getElementById('glucose-chart').style.display = 'block';
 }
 
-function getStabCutoff(readings) {
-  if (!showStab || !sensorStart) return 0;
-  const cutoff = new Date(sensorStart.getTime() + stabHours * 3600000);
-  // Find first reading index beyond cutoff
-  for (let i = 0; i < readings.length; i++) {
-    if (readings[i].ts >= cutoff) return i;
-  }
-  return 0;
+function getStabIndices(readings) {
+  if (!showStab || sensorStarts.length === 0) return new Set();
+  const stabMs = stabHours * 3600000;
+  const windows = sensorStarts.map(s => ({ start: s.getTime(), end: s.getTime() + stabMs }));
+  const result = new Set();
+  readings.forEach((r, i) => {
+    const t = r.ts.getTime();
+    for (const w of windows) {
+      if (t >= w.start && t < w.end) { result.add(i); break; }
+    }
+  });
+  return result;
 }
 
 function renderStats(readings) {
@@ -1391,7 +1450,7 @@ function valClass(v) {
   return 'good';
 }
 
-function renderChart(readings, stabCutoff) {
+function renderChart(readings, stabIndices) {
   const labels = readings.map(r => r.ts.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit', hour12:false}));
   const values = readings.map(r => toDisplayUnit(r.value));
   const dispMin = toDisplayUnit(rangeMin);
@@ -1399,7 +1458,7 @@ function renderChart(readings, stabCutoff) {
 
   // Show/hide stab notice
   const noticeEl = document.getElementById('stab-notice');
-  noticeEl.style.display = (showStab && sensorStart && stabCutoff > 0) ? 'block' : 'none';
+  noticeEl.style.display = (showStab && stabIndices.size > 0) ? 'block' : 'none';
 
   const zonePlugin = {
     id: 'glucoseZones',
@@ -1429,23 +1488,30 @@ function renderChart(readings, stabCutoff) {
       ctx.strokeStyle = 'rgba(196,124,16,0.4)';
       ctx.beginPath(); ctx.moveTo(ca.left, yHi); ctx.lineTo(ca.right, yHi); ctx.stroke();
 
-      // Stabilization overlay
-      if (showStab && sensorStart && stabCutoff > 0 && stabCutoff < readings.length) {
-        const xEnd = xS.getPixelForValue(stabCutoff - 1);
-        ctx.setLineDash([]);
-        ctx.fillStyle = 'rgba(120,120,120,0.09)';
-        ctx.fillRect(ca.left, ca.top, xEnd - ca.left, ca.bottom - ca.top);
-        // Dashed boundary
-        ctx.setLineDash([6,4]);
-        ctx.strokeStyle = 'rgba(80,80,80,0.4)';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.moveTo(xEnd, ca.top); ctx.lineTo(xEnd, ca.bottom); ctx.stroke();
-        // Label
-        ctx.setLineDash([]);
-        ctx.fillStyle = 'rgba(80,80,80,0.65)';
-        ctx.font = '600 10px -apple-system, system-ui, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText('Stabilizing', ca.left + 6, ca.top + 15);
+      // Stabilization overlay — one shaded band per contiguous run of stabilizing indices
+      if (showStab && stabIndices.size > 0) {
+        let runStart = -1;
+        for (let i = 0; i <= readings.length; i++) {
+          const inStab = stabIndices.has(i);
+          if (inStab && runStart === -1) { runStart = i; }
+          else if (!inStab && runStart !== -1) {
+            const xLeft  = runStart === 0 ? ca.left : xS.getPixelForValue(runStart);
+            const xRight = xS.getPixelForValue(i - 1);
+            ctx.setLineDash([]);
+            ctx.fillStyle = 'rgba(120,120,120,0.09)';
+            ctx.fillRect(xLeft, ca.top, xRight - xLeft, ca.bottom - ca.top);
+            ctx.setLineDash([6, 4]);
+            ctx.strokeStyle = 'rgba(80,80,80,0.4)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(xRight, ca.top); ctx.lineTo(xRight, ca.bottom); ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = 'rgba(80,80,80,0.65)';
+            ctx.font = '600 10px -apple-system, system-ui, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('Stabilizing', xLeft + 6, ca.top + 15);
+            runStart = -1;
+          }
+        }
       }
       ctx.restore();
     }
@@ -1467,7 +1533,7 @@ function renderChart(readings, stabCutoff) {
         fill: false,
         segment: {
           borderColor: ctx => {
-            if (showStab && sensorStart && ctx.p1DataIndex < stabCutoff)
+            if (stabIndices.has(ctx.p1DataIndex))
               return 'rgba(140,140,140,0.5)';
             const v = ctx.p1.parsed.y;
             return lineColor(v, false);
@@ -1495,7 +1561,7 @@ function renderChart(readings, stabCutoff) {
             label: item => {
               const v = item.parsed.y;
               const idx = item.dataIndex;
-              const stab = showStab && sensorStart && idx < stabCutoff;
+              const stab = stabIndices.has(idx);
               const status = stab ? 'Stabilizing (unreliable)'
                 : v < dispMin ? 'Below range'
                 : v > dispMax ? 'Above range'
