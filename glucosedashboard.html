@@ -462,10 +462,33 @@ body {
 
 .chart-toolbar {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
   gap: 6px;
   margin-bottom: 14px;
 }
+.unit-toggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-right: auto;
+}
+.unit-btn {
+  padding: 4px 10px;
+  border: none;
+  border-right: 1px solid var(--border);
+  background: transparent;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.unit-btn:last-child { border-right: none; }
+.unit-btn:hover { background: var(--surface2); }
+.unit-btn.active { background: var(--text); color: #fff; }
 .tool-btn {
   padding: 3px 10px;
   border-radius: 20px;
@@ -633,7 +656,7 @@ body {
 <body>
 
 <header class="page-header">
-  <h1><span class="logo-dot"></span>Glucose Monitor Dashboard <span style="font-size:11px;font-weight:500;color:var(--text2);letter-spacing:0;">v1.3.1</span><span style="margin-left:6px;font-size:10px;font-weight:400;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;letter-spacing:0;">2026-05-01</span></h1>
+  <h1><span class="logo-dot"></span>Glucose Monitor Dashboard <span style="font-size:11px;font-weight:500;color:var(--text2);letter-spacing:0;">v1.4.0</span><span style="margin-left:6px;font-size:10px;font-weight:400;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;letter-spacing:0;">2026-05-01</span></h1>
   <div style="display:flex;align-items:center;gap:12px;">
     <span class="header-meta" id="header-meta">No data loaded</span>
     <div class="meatball-wrap">
@@ -766,6 +789,11 @@ body {
 
       <!-- Chart Toolbar -->
       <div class="chart-toolbar">
+        <div class="unit-toggle">
+          <button class="unit-btn active" data-unit="mgdl" onclick="setUnit('mgdl')">mg/dL</button>
+          <button class="unit-btn" data-unit="mmol" onclick="setUnit('mmol')">mmol/L</button>
+          <button class="unit-btn" data-unit="a1c" onclick="setUnit('a1c')">eA1C</button>
+        </div>
         <button class="tool-btn" id="btn-daynav" onclick="toggleSection('btn-daynav','day-nav','flex')" title="Toggle day navigation">Day Nav</button>
         <button class="tool-btn" id="btn-stats" onclick="toggleSection('btn-stats','stats-grid','grid')" title="Toggle statistics">Stats</button>
         <button class="tool-btn" id="btn-fullscreen" onclick="toggleFullscreen()" title="Toggle fullscreen">
@@ -910,6 +938,34 @@ let rangeMax = 180;
 // UI visibility
 let showDayNav = true;
 let showStats = true;
+
+// Display unit
+let displayUnit = 'mgdl'; // 'mgdl' | 'mmol' | 'a1c'
+
+function toDisplayUnit(mgdl) {
+  if (displayUnit === 'mmol') return mgdl / 18.018;
+  if (displayUnit === 'a1c')  return (mgdl + 46.7) / 28.7;
+  return mgdl;
+}
+
+function fmtStat(mgdl) {
+  if (displayUnit === 'mmol') return (mgdl / 18.018).toFixed(1) + ' mmol/L';
+  if (displayUnit === 'a1c')  return ((mgdl + 46.7) / 28.7).toFixed(1) + '%';
+  return Math.round(mgdl) + ' mg/dL';
+}
+
+function unitLabel() {
+  if (displayUnit === 'mmol') return 'mmol/L';
+  if (displayUnit === 'a1c')  return 'eA1C %';
+  return 'mg/dL';
+}
+
+function setUnit(unit) {
+  displayUnit = unit;
+  document.querySelectorAll('.unit-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.unit === unit));
+  if (allReadings.length) renderCurrentDay();
+}
 
 // ─── Toast Notifications ─────────────────────────────────
 function showToast(message, type) {
@@ -1313,15 +1369,15 @@ function renderStats(readings) {
   const tir = Math.round(vals.filter(v=>v>=rangeMin&&v<=rangeMax).length/vals.length*100);
 
   const avgEl = document.getElementById('stat-avg');
-  avgEl.textContent = avg + ' mg/dL';
+  avgEl.textContent = fmtStat(avg);
   avgEl.className = 'stat-value ' + valClass(avg);
 
   const minEl = document.getElementById('stat-min');
-  minEl.textContent = mn + ' mg/dL';
+  minEl.textContent = fmtStat(mn);
   minEl.className = 'stat-value ' + (mn < rangeMin ? 'bad' : 'good');
 
   const maxEl = document.getElementById('stat-max');
-  maxEl.textContent = mx + ' mg/dL';
+  maxEl.textContent = fmtStat(mx);
   maxEl.className = 'stat-value ' + (mx > rangeMax ? 'warn' : 'good');
 
   const tirEl = document.getElementById('stat-tir');
@@ -1337,7 +1393,9 @@ function valClass(v) {
 
 function renderChart(readings, stabCutoff) {
   const labels = readings.map(r => r.ts.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit', hour12:false}));
-  const values = readings.map(r => r.value);
+  const values = readings.map(r => toDisplayUnit(r.value));
+  const dispMin = toDisplayUnit(rangeMin);
+  const dispMax = toDisplayUnit(rangeMax);
 
   // Show/hide stab notice
   const noticeEl = document.getElementById('stab-notice');
@@ -1351,8 +1409,8 @@ function renderChart(readings, stabCutoff) {
       const xS = chart.scales.x;
       const ca  = chart.chartArea;
       const w   = ca.right - ca.left;
-      const yLo  = yS.getPixelForValue(rangeMin);
-      const yHi  = yS.getPixelForValue(rangeMax);
+      const yLo  = yS.getPixelForValue(dispMin);
+      const yHi  = yS.getPixelForValue(dispMax);
       ctx.save();
 
       // Zone fills
@@ -1439,10 +1497,13 @@ function renderChart(readings, stabCutoff) {
               const idx = item.dataIndex;
               const stab = showStab && sensorStart && idx < stabCutoff;
               const status = stab ? 'Stabilizing (unreliable)'
-                : v < rangeMin ? 'Below range'
-                : v > rangeMax ? 'Above range'
+                : v < dispMin ? 'Below range'
+                : v > dispMax ? 'Above range'
                 : 'In range';
-              return v + ' mg/dL — ' + status;
+              const disp = displayUnit === 'a1c'  ? v.toFixed(1) + '%'
+                         : displayUnit === 'mmol' ? v.toFixed(1) + ' mmol/L'
+                         : Math.round(v) + ' mg/dL';
+              return disp + ' — ' + status;
             }
           }
         }
@@ -1460,19 +1521,19 @@ function renderChart(readings, stabCutoff) {
           border: { color: 'rgba(0,0,0,0.1)' }
         },
         y: {
-          min: Math.min(40, rangeMin - 20),
-          max: Math.max(240, rangeMax + 40),
+          min: toDisplayUnit(Math.min(40, rangeMin - 20)),
+          max: toDisplayUnit(Math.max(240, rangeMax + 40)),
           ticks: {
-            stepSize: 40,
+            stepSize: displayUnit === 'mgdl' ? 40 : displayUnit === 'mmol' ? 2 : 0.5,
             font: { size: 11, family: '-apple-system, system-ui, sans-serif' },
             color: '#8a93a0',
-            callback: v => v
+            callback: v => displayUnit === 'mgdl' ? v : v.toFixed(1)
           },
           grid: { color: 'rgba(0,0,0,0.04)' },
           border: { color: 'rgba(0,0,0,0.1)' },
           title: {
             display: true,
-            text: 'mg/dL',
+            text: unitLabel(),
             font: { size: 11 },
             color: '#8a93a0'
           }
@@ -1488,8 +1549,10 @@ function renderChart(readings, stabCutoff) {
 
 function lineColor(v, stab) {
   if (stab) return 'rgba(140,140,140,0.5)';
-  if (v < rangeMin) return '#d94040';
-  if (v > rangeMax) return '#c47c10';
+  const lo = toDisplayUnit(rangeMin);
+  const hi = toDisplayUnit(rangeMax);
+  if (v < lo) return '#d94040';
+  if (v > hi) return '#c47c10';
   return '#1a7fd4';
 }
 
